@@ -244,35 +244,46 @@ class LinkedInBot:
             # ----------------------------------------------------------
             connect_clicked = False
 
-            # Strategy 1 – direct Connect button
-            connect_btn = page.locator(
-                'button:has-text("Connect")'
-            ).first
-            try:
-                if connect_btn.is_visible(timeout=4_000):
-                    connect_btn.click()
-                    connect_clicked = True
-                    logger.info("Clicked direct Connect button.")
-            except Exception:
-                pass
+            # Strategy 1 – direct Connect button (multiple selector patterns)
+            connect_selectors = [
+                'button:has-text("Connect")',
+                'button[aria-label*="Connect"]',
+                'button[data-control-name="connect"]',
+                'a[data-control-name="connect"]',
+            ]
+            for selector in connect_selectors:
+                try:
+                    btn = page.locator(selector).first
+                    if btn.is_visible(timeout=3_000):
+                        btn.click()
+                        connect_clicked = True
+                        logger.info(f"Clicked Connect button via selector: {selector}")
+                        break
+                except Exception:
+                    continue
 
             # Strategy 2 – "More" dropdown
             if not connect_clicked:
                 try:
-                    more_btn = page.locator(
-                        'button:has-text("More")'
-                    ).first
-                    if more_btn.is_visible(timeout=4_000):
-                        more_btn.click()
-                        self._random_delay(1, 2)
-                        connect_option = page.locator(
-                            '[role="option"]:has-text("Connect"), '
-                            'li:has-text("Connect") > *'
-                        ).first
-                        if connect_option.is_visible(timeout=3_000):
-                            connect_option.click()
-                            connect_clicked = True
-                            logger.info("Clicked Connect via More dropdown.")
+                    more_selectors = [
+                        'button:has-text("More")',
+                        'button[aria-label*="More"]',
+                    ]
+                    for more_sel in more_selectors:
+                        more_btn = page.locator(more_sel).first
+                        if more_btn.is_visible(timeout=3_000):
+                            more_btn.click()
+                            self._random_delay(1, 2)
+                            connect_option = page.locator(
+                                '[role="option"]:has-text("Connect"), '
+                                'li:has-text("Connect") > *, '
+                                'div[role="listbox"] :has-text("Connect")'
+                            ).first
+                            if connect_option.is_visible(timeout=3_000):
+                                connect_option.click()
+                                connect_clicked = True
+                                logger.info("Clicked Connect via More dropdown.")
+                            break
                 except Exception:
                     pass
 
