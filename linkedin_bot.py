@@ -276,7 +276,10 @@ class LinkedInBot:
             # Add a personalised note
             # ----------------------------------------------------------
             message = self.message_template.format(
-                first_name=contact.first_name or contact.name.split()[0]
+                first_name=contact.first_name or contact.name.split()[0],
+                name=contact.name or "",
+                company=contact.company or "",
+                title=contact.title or "",
             )
 
             try:
