@@ -41,10 +41,20 @@ class LinkedInBot:
         self.email = os.getenv("LINKEDIN_EMAIL", "")
         self.password = os.getenv("LINKEDIN_PASSWORD", "")
         self.headless = os.getenv("HEADLESS", "true").lower() == "true"
-        self.message_template = os.getenv(
-            "MESSAGE_TEMPLATE",
-            "Hi {first_name}, I came across your profile and would love to connect!",
-        )
+        self.templates = {
+            "default": os.getenv(
+                "MESSAGE_TEMPLATE_DEFAULT",
+                "Hi {first_name}, I came across your profile and would love to connect!",
+            ),
+            "healthcare": os.getenv(
+                "MESSAGE_TEMPLATE_HEALTHCARE",
+                "Hi {first_name}, I'm a student at Purdue University researching procurement workflows at healthcare companies for a concept competition — specifically exploring how AI is reshaping supply chain operations. I only need 10 interviews by Friday to move to the next phase! Would it be crazy to ask for 15 minutes of your time?",
+            ),
+            "vc": os.getenv(
+                "MESSAGE_TEMPLATE_VC",
+                "Hi {first_name}, I'm a Purdue student passionate about venture capital and eager to break into the industry. I'd love to connect with experienced professionals at {company} and learn more about paths into VC. Would love to be on your radar!",
+            ),
+        }
         self.daily_limit = int(os.getenv("DAILY_LIMIT", 20))
 
         self._playwright = None
@@ -275,7 +285,9 @@ class LinkedInBot:
             # ----------------------------------------------------------
             # Add a personalised note
             # ----------------------------------------------------------
-            message = self.message_template.format(
+            template_key = contact.template.value if contact.template else "default"
+            template_str = self.templates.get(template_key, self.templates["default"])
+            message = template_str.format(
                 first_name=contact.first_name or contact.name.split()[0],
                 name=contact.name or "",
                 company=contact.company or "",

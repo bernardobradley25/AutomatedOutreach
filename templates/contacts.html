@@ -44,6 +44,7 @@
             <th style="width:200px;">Name</th>
             <th>Company</th>
             <th>Title</th>
+            <th>Template</th>
             <th>Status</th>
             <th>Date Added</th>
             <th>Date Sent</th>
@@ -67,6 +68,15 @@
             </td>
             <td class="text-muted small">{{ c.company or '—' }}</td>
             <td class="text-muted small">{{ c.title or '—' }}</td>
+            <td>
+              {% if c.template.value == 'healthcare' %}
+                <span class="badge bg-info text-dark">Healthcare</span>
+              {% elif c.template.value == 'vc' %}
+                <span class="badge bg-warning text-dark">VC</span>
+              {% else %}
+                <span class="badge bg-secondary">Default</span>
+              {% endif %}
+            </td>
             <td>{% include '_status_badge.html' %}</td>
             <td class="text-muted small">
               {{ c.date_added.strftime('%b %d, %Y') if c.date_added else '—' }}
@@ -98,6 +108,19 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                   </div>
                   <div class="modal-body">
+                    <div class="mb-3">
+                      <label class="form-label">Template</label>
+                      <select name="template" class="form-select">
+                        {% for t in templates %}
+                        <option value="{{ t }}" {% if c.template.value == t %}selected{% endif %}>
+                          {% if t == 'healthcare' %}Healthcare Procurement
+                          {% elif t == 'vc' %}Venture Capital
+                          {% else %}Default
+                          {% endif %}
+                        </option>
+                        {% endfor %}
+                      </select>
+                    </div>
                     <div class="mb-3">
                       <label class="form-label">Status</label>
                       <select name="status" class="form-select">
@@ -233,6 +256,14 @@
             </div>
           </div>
           <div class="mb-3 mt-3">
+            <label class="form-label">Template</label>
+            <select name="template" class="form-select">
+              <option value="default">Default</option>
+              <option value="healthcare">Healthcare Procurement</option>
+              <option value="vc">Venture Capital</option>
+            </select>
+          </div>
+          <div class="mb-3">
             <label class="form-label">Notes</label>
             <textarea name="notes" class="form-control" rows="2"
                       placeholder="Optional notes about this contact"></textarea>

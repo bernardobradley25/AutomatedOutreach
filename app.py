@@ -30,7 +30,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///outreach.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Initialise the shared db instance from database.py
-from database import db, Contact, ContactStatus, DailyStat
+from database import db, Contact, ContactStatus, TemplateChoice, DailyStat
 from database import (
     add_contact,
     get_contacts,
@@ -177,6 +177,7 @@ def contacts():
         pagination=pagination,
         status_filter=status_filter,
         statuses=[s.value for s in ContactStatus],
+        templates=[t.value for t in TemplateChoice],
     )
 
 
@@ -187,6 +188,7 @@ def add_contact_route():
     company = request.form.get("company", "").strip()
     title = request.form.get("title", "").strip()
     notes = request.form.get("notes", "").strip()
+    template = request.form.get("template", "default").strip()
 
     if not name or not linkedin_url:
         flash("Name and LinkedIn URL are required.", "danger")
@@ -199,6 +201,7 @@ def add_contact_route():
             company=company or None,
             title=title or None,
             notes=notes or None,
+            template=template,
         )
         flash(f"Contact '{name}' added successfully.", "success")
     except Exception as exc:
@@ -237,6 +240,7 @@ def import_contacts():
                     company=str(row.get("company", "")).strip() or None,
                     title=str(row.get("title", "")).strip() or None,
                     notes=str(row.get("notes", "")).strip() or None,
+                    template=str(row.get("template", "default")).strip() or "default",
                 )
                 added += 1
             except Exception as exc:
@@ -274,10 +278,13 @@ def update_contact(contact_id):
     status = request.form.get("status")
     notes = request.form.get("notes")
 
+    template = request.form.get("template")
     try:
         contact = Contact.query.get_or_404(contact_id)
         if status and status in [s.value for s in ContactStatus]:
             contact.status = ContactStatus(status)
+        if template and template in [t.value for t in TemplateChoice]:
+            contact.template = TemplateChoice(template)
         if notes is not None:
             contact.notes = notes.strip() or None
         db.session.commit()

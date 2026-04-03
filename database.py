@@ -15,6 +15,12 @@ class ContactStatus(enum.Enum):
     failed = "failed"
 
 
+class TemplateChoice(enum.Enum):
+    default = "default"
+    healthcare = "healthcare"
+    vc = "vc"
+
+
 class Contact(db.Model):
     __tablename__ = "contacts"
 
@@ -28,6 +34,11 @@ class Contact(db.Model):
         SAEnum(ContactStatus),
         nullable=False,
         default=ContactStatus.pending,
+    )
+    template = db.Column(
+        SAEnum(TemplateChoice),
+        nullable=False,
+        default=TemplateChoice.default,
     )
     date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     date_sent = db.Column(db.DateTime, nullable=True)
@@ -45,6 +56,7 @@ class Contact(db.Model):
             "status": self.status.value if self.status else None,
             "date_added": self.date_added.isoformat() if self.date_added else None,
             "date_sent": self.date_sent.isoformat() if self.date_sent else None,
+            "template": self.template.value if self.template else "default",
             "notes": self.notes,
             "message_sent": self.message_sent,
         }
@@ -83,6 +95,7 @@ def add_contact(
     title: str = None,
     notes: str = None,
     first_name: str = None,
+    template: str = "default",
 ) -> Contact:
     """Create and persist a new Contact record."""
     if first_name is None:
@@ -90,6 +103,11 @@ def add_contact(
 
     # Normalise URL – strip trailing slashes
     linkedin_url = linkedin_url.strip().rstrip("/")
+
+    try:
+        template_choice = TemplateChoice(template)
+    except ValueError:
+        template_choice = TemplateChoice.default
 
     contact = Contact(
         name=name.strip(),
@@ -99,6 +117,7 @@ def add_contact(
         title=title.strip() if title else None,
         notes=notes.strip() if notes else None,
         status=ContactStatus.pending,
+        template=template_choice,
     )
     db.session.add(contact)
     db.session.commit()
