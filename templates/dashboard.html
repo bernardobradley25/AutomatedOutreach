@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block topbar_info %}Next run: {{ next_run }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4 pt-3">
+  <h2 class="mb-0">Dashboard</h2>
+  <form action="{{ url_for('run_outreach') }}" method="post">
+    <button type="submit" class="btn btn-primary">
+      <i class="bi bi-play-fill me-1"></i> Run Outreach Now
+    </button>
+  </form>
+</div>
+
+<!-- ===== Stat cards ===== -->
+<div class="row g-3 mb-4">
+
+  <div class="col-6 col-xl-3">
+    <div class="card h-100 border-0 stat-card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="text-muted small text-uppercase fw-semibold">Today's Sends</span>
+          <span class="stat-icon bg-primary bg-opacity-10 text-primary rounded-circle p-2">
+            <i class="bi bi-send-fill fs-5"></i>
+          </span>
+        </div>
+        <div class="display-6 fw-bold">
+          {{ stats.today_sent }}
+          <span class="fs-5 text-muted fw-normal">/ {{ stats.daily_limit }}</span>
+        </div>
+        <div class="mt-2">
+          <div class="progress" style="height:6px;">
+            <div class="progress-bar bg-primary" style="width:{{ [(stats.today_sent / stats.daily_limit * 100), 100] | min }}%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-xl-3">
+    <div class="card h-100 border-0 stat-card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="text-muted small text-uppercase fw-semibold">This Week</span>
+          <span class="stat-icon bg-info bg-opacity-10 text-info rounded-circle p-2">
+            <i class="bi bi-calendar-week fs-5"></i>
+          </span>
+        </div>
+        <div class="display-6 fw-bold">{{ stats.week_sent }}</div>
+        <div class="small text-muted mt-1">connections sent</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-xl-3">
+    <div class="card h-100 border-0 stat-card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="text-muted small text-uppercase fw-semibold">Total Sent</span>
+          <span class="stat-icon bg-success bg-opacity-10 text-success rounded-circle p-2">
+            <i class="bi bi-check2-circle fs-5"></i>
+          </span>
+        </div>
+        <div class="display-6 fw-bold">{{ stats.total_sent }}</div>
+        <div class="small text-muted mt-1">all time</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-xl-3">
+    <div class="card h-100 border-0 stat-card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="text-muted small text-uppercase fw-semibold">Pending</span>
+          <span class="stat-icon bg-warning bg-opacity-10 text-warning rounded-circle p-2">
+            <i class="bi bi-hourglass-split fs-5"></i>
+          </span>
+        </div>
+        <div class="display-6 fw-bold">{{ stats.pending_count }}</div>
+        <div class="small text-muted mt-1">contacts queued</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<!-- ===== /Stat cards ===== -->
+
+<!-- ===== Charts row ===== -->
+<div class="row g-3 mb-4">
+
+  <div class="col-lg-8">
+    <div class="card border-0 h-100">
+      <div class="card-header bg-transparent border-bottom-0 pt-3 pb-0">
+        <h6 class="mb-0 fw-semibold">Weekly Activity</h6>
+        <small class="text-muted">Connections sent per day (last 7 days)</small>
+      </div>
+      <div class="card-body">
+        <canvas id="weeklyChart" height="100"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card border-0 h-100">
+      <div class="card-header bg-transparent border-bottom-0 pt-3 pb-0">
+        <h6 class="mb-0 fw-semibold">Status Breakdown</h6>
+        <small class="text-muted">All contacts by status</small>
+      </div>
+      <div class="card-body d-flex flex-column align-items-center justify-content-center">
+        <canvas id="statusChart" style="max-height:200px;"></canvas>
+        <div class="mt-3 w-100" id="statusLegend"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<!-- ===== /Charts row ===== -->
+
+<!-- ===== Recent Activity ===== -->
+<div class="card border-0 mb-4">
+  <div class="card-header bg-transparent d-flex align-items-center justify-content-between">
+    <div>
+      <h6 class="mb-0 fw-semibold">Recent Activity</h6>
+      <small class="text-muted">Last 10 connection requests sent</small>
+    </div>
+    <a href="{{ url_for('contacts') }}?status=sent" class="btn btn-sm btn-outline-secondary">View All</a>
+  </div>
+  <div class="card-body p-0">
+    {% if recent_contacts %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-dark">
+          <tr>
+            <th>Name</th>
+            <th>Company</th>
+            <th>Title</th>
+            <th>Status</th>
+            <th>Date Sent</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in recent_contacts %}
+          <tr>
+            <td>
+              <a href="{{ c.linkedin_url }}" target="_blank" class="text-decoration-none fw-semibold">
+                {{ c.name }}
+                <i class="bi bi-box-arrow-up-right ms-1 small text-muted"></i>
+              </a>
+            </td>
+            <td class="text-muted small">{{ c.company or '—' }}</td>
+            <td class="text-muted small">{{ c.title or '—' }}</td>
+            <td>{% include '_status_badge.html' %}</td>
+            <td class="text-muted small">
+              {{ c.date_sent.strftime('%b %d, %Y') if c.date_sent else '—' }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-5">
+      <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+      No connections sent yet. Add contacts and run outreach to get started.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Next Run info -->
+<div class="alert alert-secondary d-flex align-items-center gap-2">
+  <i class="bi bi-clock fs-5"></i>
+  <span>
+    <strong>Next scheduled run:</strong> {{ next_run }}
+    &mdash; Mon–Fri at 9:00 AM. You can also trigger a run manually above.
+  </span>
+</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+// ---- Data injected from Flask ----
+const chartLabels = {{ stats.chart_labels | tojson }};
+const chartData   = {{ stats.chart_data  | tojson }};
+const statusData  = {
+  pending:   {{ stats.pending_count }},
+  sent:      {{ stats.today_sent }},
+  accepted:  {{ stats.accepted_count }},
+  failed:    {{ stats.failed_count }},
+  withdrawn: {{ stats.withdrawn_count }},
+};
+
+// ---- Weekly bar chart ----
+const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
+new Chart(weeklyCtx, {
+  type: 'bar',
+  data: {
+    labels: chartLabels,
+    datasets: [{
+      label: 'Sent',
+      data: chartData,
+      backgroundColor: 'rgba(13, 110, 253, 0.7)',
+      borderColor: 'rgba(13, 110, 253, 1)',
+      borderWidth: 1,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { stepSize: 1, color: '#adb5bd' },
+        grid: { color: 'rgba(255,255,255,0.05)' },
+      },
+      x: {
+        ticks: { color: '#adb5bd' },
+        grid: { display: false },
+      }
+    }
+  }
+});
+
+// ---- Status pie chart ----
+const statusColors = {
+  pending:   '#6c757d',
+  sent:      '#0d6efd',
+  accepted:  '#198754',
+  failed:    '#dc3545',
+  withdrawn: '#ffc107',
+};
+const statusLabels = Object.keys(statusData);
+const statusValues = Object.values(statusData);
+const statusCtx = document.getElementById('statusChart').getContext('2d');
+new Chart(statusCtx, {
+  type: 'doughnut',
+  data: {
+    labels: statusLabels.map(l => l.charAt(0).toUpperCase() + l.slice(1)),
+    datasets: [{
+      data: statusValues,
+      backgroundColor: statusLabels.map(l => statusColors[l]),
+      borderWidth: 2,
+      borderColor: '#1e2128',
+    }]
+  },
+  options: {
+    cutout: '65%',
+    plugins: {
+      legend: { display: false },
+    }
+  }
+});
+
+// Custom legend
+const legendEl = document.getElementById('statusLegend');
+statusLabels.forEach((label, i) => {
+  legendEl.innerHTML += `
+    <div class="d-flex align-items-center justify-content-between mb-1 small">
+      <span>
+        <span class="badge me-1" style="background:${statusColors[label]}">&nbsp;</span>
+        ${label.charAt(0).toUpperCase() + label.slice(1)}
+      </span>
+      <strong>${statusValues[i]}</strong>
+    </div>`;
+});
+
+// ---- Auto-refresh stats every 30 seconds ----
+setInterval(async () => {
+  try {
+    const res = await fetch('/api/stats');
+    if (!res.ok) return;
+    // Full page refresh is simplest for keeping all cards in sync
+    // A more advanced version would do partial DOM updates
+    window.location.reload();
+  } catch (e) { /* silent */ }
+}, 30000);
+</script>
+{% endblock %}

@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}Import Contacts{% endblock %}
+
+{% block content %}
+<div class="pt-3 mb-4">
+  <h2 class="mb-1">Import Contacts</h2>
+  <p class="text-muted">Upload a CSV file to bulk-import contacts into your outreach queue.</p>
+</div>
+
+<div class="row g-4">
+
+  <!-- ===== Upload card ===== -->
+  <div class="col-lg-6">
+    <div class="card border-0">
+      <div class="card-header bg-transparent">
+        <h5 class="mb-0"><i class="bi bi-upload me-2 text-primary"></i>Upload CSV File</h5>
+      </div>
+      <div class="card-body">
+        <form action="{{ url_for('import_contacts') }}" method="post"
+              enctype="multipart/form-data" id="importForm">
+
+          <!-- Drop zone -->
+          <div class="upload-zone text-center p-5 mb-3 rounded border border-dashed"
+               id="dropZone">
+            <i class="bi bi-file-earmark-spreadsheet fs-1 text-muted d-block mb-2"></i>
+            <p class="mb-2 text-muted">Drag &amp; drop your CSV here, or click to browse</p>
+            <input type="file" name="csv_file" id="csvFileInput"
+                   class="d-none" accept=".csv" required />
+            <button type="button" class="btn btn-outline-primary btn-sm"
+                    onclick="document.getElementById('csvFileInput').click()">
+              <i class="bi bi-folder2-open me-1"></i> Browse File
+            </button>
+            <div id="selectedFile" class="mt-2 text-success small d-none">
+              <i class="bi bi-check-circle me-1"></i>
+              <span id="fileName"></span>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary flex-grow-1" id="importBtn" disabled>
+              <i class="bi bi-upload me-1"></i> Import Contacts
+            </button>
+            <a href="{{ url_for('contacts') }}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Format instructions ===== -->
+  <div class="col-lg-6">
+    <div class="card border-0">
+      <div class="card-header bg-transparent">
+        <h5 class="mb-0"><i class="bi bi-info-circle me-2 text-info"></i>CSV Format</h5>
+      </div>
+      <div class="card-body">
+
+        <p class="text-muted small">Your CSV must include these columns (header row required):</p>
+
+        <div class="table-responsive mb-3">
+          <table class="table table-sm table-bordered align-middle mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th>Column</th>
+                <th>Required</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody class="small">
+              <tr>
+                <td><code>name</code></td>
+                <td><span class="badge bg-danger">Yes</span></td>
+                <td>Full name of the contact</td>
+              </tr>
+              <tr>
+                <td><code>linkedin_url</code></td>
+                <td><span class="badge bg-danger">Yes</span></td>
+                <td>Full LinkedIn profile URL</td>
+              </tr>
+              <tr>
+                <td><code>company</code></td>
+                <td><span class="badge bg-secondary">No</span></td>
+                <td>Current employer</td>
+              </tr>
+              <tr>
+                <td><code>title</code></td>
+                <td><span class="badge bg-secondary">No</span></td>
+                <td>Job title / role</td>
+              </tr>
+              <tr>
+                <td><code>notes</code></td>
+                <td><span class="badge bg-secondary">No</span></td>
+                <td>Any personal notes</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h6 class="fw-semibold">Example CSV</h6>
+        <pre class="bg-dark rounded p-3 small text-success mb-3"><code>name,linkedin_url,company,title,notes
+Jane Smith,https://linkedin.com/in/janesmith,Acme Corp,VP Engineering,Met at SaaStr
+Bob Jones,https://linkedin.com/in/bobjones,Widgets Inc,CTO,
+Alice Lee,https://linkedin.com/in/alicelee,StartupXYZ,Founder,Mutual connection with Mark</code></pre>
+
+        <div class="alert alert-info small mb-0">
+          <i class="bi bi-lightbulb me-1"></i>
+          Duplicate LinkedIn URLs are automatically skipped — safe to re-import without creating duplicates.
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview section (populated by JS after file select) -->
+    <div class="card border-0 mt-3 d-none" id="previewCard">
+      <div class="card-header bg-transparent">
+        <h5 class="mb-0"><i class="bi bi-table me-2 text-success"></i>Preview
+          <span class="badge bg-secondary ms-1 small" id="previewCount"></span>
+        </h5>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive" style="max-height:260px;overflow-y:auto;">
+          <table class="table table-sm table-hover align-middle mb-0 small" id="previewTable">
+            <thead class="table-dark sticky-top"><tr></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+const fileInput  = document.getElementById('csvFileInput');
+const dropZone   = document.getElementById('dropZone');
+const importBtn  = document.getElementById('importBtn');
+const selectedFile = document.getElementById('selectedFile');
+const fileNameEl = document.getElementById('fileName');
+
+// ---- File picker change ----
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) {
+    handleFile(fileInput.files[0]);
+  }
+});
+
+// ---- Drag-and-drop ----
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('upload-zone-active');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('upload-zone-active'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('upload-zone-active');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.csv')) {
+    // Assign the file to the input via DataTransfer
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    handleFile(file);
+  } else {
+    alert('Please drop a .csv file.');
+  }
+});
+
+function handleFile(file) {
+  fileNameEl.textContent = file.name;
+  selectedFile.classList.remove('d-none');
+  importBtn.disabled = false;
+  previewCSV(file);
+}
+
+// ---- CSV Preview ----
+function previewCSV(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const lines = e.target.result.split('\n').filter(l => l.trim());
+    if (!lines.length) return;
+
+    const previewCard = document.getElementById('previewCard');
+    const table = document.getElementById('previewTable');
+    const thead = table.querySelector('thead tr');
+    const tbody = table.querySelector('tbody');
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    const headers = parseCSVLine(lines[0]);
+    headers.forEach(h => {
+      const th = document.createElement('th');
+      th.textContent = h;
+      thead.appendChild(th);
+    });
+
+    const maxRows = Math.min(lines.length - 1, 10);
+    for (let i = 1; i <= maxRows; i++) {
+      const cells = parseCSVLine(lines[i]);
+      const tr = document.createElement('tr');
+      cells.forEach(cell => {
+        const td = document.createElement('td');
+        td.textContent = cell.length > 40 ? cell.slice(0, 40) + '…' : cell;
+        td.className = 'text-muted';
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    }
+
+    document.getElementById('previewCount').textContent =
+      `${lines.length - 1} row${lines.length - 1 === 1 ? '' : 's'}`;
+    previewCard.classList.remove('d-none');
+  };
+  reader.readAsText(file);
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+</script>
+{% endblock %}

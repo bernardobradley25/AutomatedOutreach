@@ -1,0 +1,14 @@
+{% set status_val = c.status.value if c.status else 'unknown' %}
+{% if status_val == 'pending' %}
+  <span class="badge bg-secondary">Pending</span>
+{% elif status_val == 'sent' %}
+  <span class="badge bg-primary">Sent</span>
+{% elif status_val == 'accepted' %}
+  <span class="badge bg-success">Accepted</span>
+{% elif status_val == 'failed' %}
+  <span class="badge bg-danger">Failed</span>
+{% elif status_val == 'withdrawn' %}
+  <span class="badge bg-warning text-dark">Withdrawn</span>
+{% else %}
+  <span class="badge bg-dark">{{ status_val }}</span>
+{% endif %}
