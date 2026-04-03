@@ -288,7 +288,13 @@ class LinkedInBot:
                     pass
 
             if not connect_clicked:
-                logger.warning(f"Could not find Connect button for {contact.name} at {url}")
+                screenshot_path = Path(__file__).parent / f"debug_{contact.name.replace(' ', '_')}.png"
+                try:
+                    page.screenshot(path=str(screenshot_path))
+                    logger.warning(f"Could not find Connect button for {contact.name} at {url}")
+                    logger.warning(f"Screenshot saved to {screenshot_path} — open it to see what the bot saw.")
+                except Exception:
+                    logger.warning(f"Could not find Connect button for {contact.name} at {url}")
                 return False
 
             self._random_delay(2, 4)
