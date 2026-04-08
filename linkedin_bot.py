@@ -237,32 +237,60 @@ class LinkedInBot:
             except Exception:
                 pass
 
+            # Wait for the page to fully render before looking for buttons
+            try:
+                page.wait_for_load_state("networkidle", timeout=10_000)
+            except Exception:
+                pass
+
             # ----------------------------------------------------------
             # Find the Connect button
-            # Strategy 1: visible "Connect" button in top action area
-            # Strategy 2: "More" dropdown → "Connect"
+            # Strategy 1: JavaScript – walks every button, picks the first
+            #              one whose visible text starts with "Connect".
+            #              This bypasses CSS-selector issues entirely.
+            # Strategy 2: Playwright wait_for_selector → click
+            # Strategy 3: "More" dropdown → "Connect"
             # ----------------------------------------------------------
             connect_clicked = False
 
-            # Strategy 1 – direct Connect button (multiple selector patterns)
-            connect_selectors = [
-                'button:has-text("Connect")',
-                'button[aria-label*="Connect"]',
-                'button[data-control-name="connect"]',
-                'a[data-control-name="connect"]',
-            ]
-            for selector in connect_selectors:
-                try:
-                    btn = page.locator(selector).first
-                    if btn.is_visible(timeout=3_000):
-                        btn.click()
+            # Strategy 1 – JavaScript click (most reliable across LinkedIn layouts)
+            try:
+                connect_clicked = page.evaluate("""
+                    () => {
+                        const buttons = Array.from(document.querySelectorAll('button'));
+                        for (const btn of buttons) {
+                            const text = (btn.innerText || '').trim();
+                            if (text === 'Connect' || text.startsWith('Connect')) {
+                                btn.click();
+                                return true;
+                            }
+                        }
+                        return false;
+                    }
+                """)
+                if connect_clicked:
+                    logger.info("Clicked Connect button via JavaScript.")
+            except Exception:
+                connect_clicked = False
+
+            # Strategy 2 – Playwright selectors with proper waiting
+            if not connect_clicked:
+                connect_selectors = [
+                    'button:has-text("Connect")',
+                    'button[aria-label*="connect" i]',
+                    'button[aria-label*="Invite" i]',
+                ]
+                for selector in connect_selectors:
+                    try:
+                        page.wait_for_selector(selector, state="visible", timeout=5_000)
+                        page.click(selector)
                         connect_clicked = True
                         logger.info(f"Clicked Connect button via selector: {selector}")
                         break
-                except Exception:
-                    continue
+                    except Exception:
+                        continue
 
-            # Strategy 2 – "More" dropdown
+            # Strategy 3 – "More" dropdown
             if not connect_clicked:
                 try:
                     more_selectors = [
@@ -270,9 +298,9 @@ class LinkedInBot:
                         'button[aria-label*="More"]',
                     ]
                     for more_sel in more_selectors:
-                        more_btn = page.locator(more_sel).first
-                        if more_btn.is_visible(timeout=3_000):
-                            more_btn.click()
+                        try:
+                            page.wait_for_selector(more_sel, state="visible", timeout=3_000)
+                            page.click(more_sel)
                             self._random_delay(1, 2)
                             connect_option = page.locator(
                                 '[role="option"]:has-text("Connect"), '
@@ -284,6 +312,8 @@ class LinkedInBot:
                                 connect_clicked = True
                                 logger.info("Clicked Connect via More dropdown.")
                             break
+                        except Exception:
+                            continue
                 except Exception:
                     pass
 
