@@ -48,6 +48,7 @@
             <th>Status</th>
             <th>Date Added</th>
             <th>Date Sent</th>
+            <th>Connected</th>
             <th class="text-end">Actions</th>
           </tr>
         </thead>
@@ -83,6 +84,13 @@
             </td>
             <td class="text-muted small">
               {{ c.date_sent.strftime('%b %d, %Y') if c.date_sent else '—' }}
+            </td>
+            <td class="text-muted small">
+              {% if c.date_connected %}
+                <span class="text-success fw-semibold">{{ c.date_connected.strftime('%b %d, %Y') }}</span>
+              {% else %}
+                —
+              {% endif %}
             </td>
             <td class="text-end">
               <button class="btn btn-sm btn-outline-secondary"

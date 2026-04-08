@@ -7,11 +7,18 @@
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-4 pt-3">
   <h2 class="mb-0">Dashboard</h2>
-  <form action="{{ url_for('run_outreach') }}" method="post">
-    <button type="submit" class="btn btn-primary">
-      <i class="bi bi-play-fill me-1"></i> Run Outreach Now
-    </button>
-  </form>
+  <div class="d-flex gap-2">
+    <form action="{{ url_for('check_accepted') }}" method="post">
+      <button type="submit" class="btn btn-outline-success">
+        <i class="bi bi-person-check me-1"></i> Check Accepted
+      </button>
+    </form>
+    <form action="{{ url_for('run_outreach') }}" method="post">
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-play-fill me-1"></i> Run Outreach Now
+      </button>
+    </form>
+  </div>
 </div>
 
 <!-- ===== Stat cards ===== -->

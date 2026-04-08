@@ -383,6 +383,108 @@ class LinkedInBot:
             logger.error(f"Error sending request to {contact.name}: {exc}")
             return False
 
+    def _check_connection_status(self, contact) -> str:
+        """
+        Visit a contact's profile and determine whether they accepted.
+
+        Returns one of:
+          "accepted"  – they are now a 1st-degree connection
+          "pending"   – invite is still waiting
+          "unknown"   – could not determine
+        """
+        page = self._page
+        logger.info(f"Checking acceptance status for {contact.name}…")
+        page.goto(contact.linkedin_url, timeout=30_000)
+        self._random_delay(2, 4)
+
+        try:
+            page.wait_for_load_state("networkidle", timeout=10_000)
+        except Exception:
+            pass
+
+        try:
+            result = page.evaluate("""
+                () => {
+                    const buttons = Array.from(document.querySelectorAll('button'));
+                    const text = b => (b.innerText || '').trim().toLowerCase();
+                    const hasMessage  = buttons.some(b => text(b) === 'message');
+                    const hasConnect  = buttons.some(b => text(b) === 'connect' || text(b).startsWith('connect'));
+                    const hasPending  = buttons.some(b => text(b).includes('pending'));
+                    const hasWithdraw = buttons.some(b => text(b).includes('withdraw'));
+
+                    // Connected: Message button visible, no Connect / Pending button
+                    if (hasMessage && !hasConnect && !hasPending && !hasWithdraw) return 'accepted';
+                    if (hasPending || hasWithdraw) return 'pending';
+                    if (hasConnect) return 'pending';   // request declined / expired
+                    return 'unknown';
+                }
+            """)
+            return result
+        except Exception as exc:
+            logger.warning(f"Could not determine status for {contact.name}: {exc}")
+            return "unknown"
+
+    def check_accepted_requests(self, app=None) -> dict:
+        """
+        Check every 'sent' contact's profile to see if they've accepted.
+        Updates status to 'accepted' in the database for those who have.
+
+        Returns a summary dict: {accepted, still_pending, errors}.
+        """
+        from database import get_contacts_to_check, update_contact_status
+
+        summary = {"accepted": 0, "still_pending": 0, "errors": 0}
+
+        def _run():
+            if not self.load_session():
+                logger.info("Attempting fresh login for acceptance check…")
+                if not self.login():
+                    logger.error("Cannot proceed without a valid LinkedIn session.")
+                    return
+
+            with (app.app_context() if app else _null_context()):
+                contacts = get_contacts_to_check()
+
+            if not contacts:
+                logger.info("No sent contacts to check for acceptance.")
+                self._close()
+                return
+
+            logger.info(f"Checking {len(contacts)} sent contact(s) for acceptance…")
+
+            for contact in contacts:
+                try:
+                    result = self._check_connection_status(contact)
+                    with (app.app_context() if app else _null_context()):
+                        if result == "accepted":
+                            update_contact_status(contact.id, "accepted")
+                            summary["accepted"] += 1
+                            logger.info(f"✓ {contact.name} accepted your connection request!")
+                        else:
+                            summary["still_pending"] += 1
+                            logger.info(f"  {contact.name} — still {result}.")
+                except Exception as exc:
+                    logger.error(f"Error checking {contact.name}: {exc}")
+                    summary["errors"] += 1
+
+                self._random_delay(2, 5)
+
+            self._close()
+            logger.info(
+                f"Acceptance check complete. "
+                f"Accepted: {summary['accepted']}, "
+                f"Still pending: {summary['still_pending']}, "
+                f"Errors: {summary['errors']}"
+            )
+
+        try:
+            _run()
+        except Exception as exc:
+            logger.error(f"Unexpected error in check_accepted_requests: {exc}")
+            self._close()
+
+        return summary
+
     def run_daily_outreach(self, app=None) -> dict:
         """
         Main entry point for automated outreach.

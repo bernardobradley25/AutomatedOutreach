@@ -22,6 +22,15 @@ def _outreach_job(app):
     logger.info(f"Scheduled outreach job finished: {summary}")
 
 
+def _acceptance_check_job(app):
+    """Check every 'sent' contact to see if they accepted. Runs daily at noon."""
+    logger.info("Scheduled acceptance-check job starting…")
+    from linkedin_bot import LinkedInBot
+    bot = LinkedInBot()
+    summary = bot.check_accepted_requests(app=app)
+    logger.info(f"Acceptance-check job finished: {summary}")
+
+
 def start_scheduler(app):
     """
     Configure and start the background scheduler.
@@ -35,16 +44,22 @@ def start_scheduler(app):
 
     _scheduler.add_job(
         func=_outreach_job,
-        trigger=CronTrigger(
-            day_of_week="mon-fri",
-            hour=9,
-            minute=0,
-        ),
+        trigger=CronTrigger(day_of_week="mon-fri", hour=9, minute=0),
         args=[app],
         id="daily_outreach",
         name="Daily LinkedIn Outreach",
         replace_existing=True,
-        misfire_grace_time=3600,  # allow up to 1 h late start
+        misfire_grace_time=3600,
+    )
+
+    _scheduler.add_job(
+        func=_acceptance_check_job,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=12, minute=0),
+        args=[app],
+        id="acceptance_check",
+        name="Daily Acceptance Check",
+        replace_existing=True,
+        misfire_grace_time=3600,
     )
 
     _scheduler.start()

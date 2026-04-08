@@ -42,6 +42,7 @@ class Contact(db.Model):
     )
     date_added = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     date_sent = db.Column(db.DateTime, nullable=True)
+    date_connected = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.Text)
     message_sent = db.Column(db.Text)
 
@@ -56,6 +57,7 @@ class Contact(db.Model):
             "status": self.status.value if self.status else None,
             "date_added": self.date_added.isoformat() if self.date_added else None,
             "date_sent": self.date_sent.isoformat() if self.date_sent else None,
+            "date_connected": self.date_connected.isoformat() if self.date_connected else None,
             "template": self.template.value if self.template else "default",
             "notes": self.notes,
             "message_sent": self.message_sent,
@@ -161,6 +163,8 @@ def update_contact_status(
     contact.status = ContactStatus(status)
     if status == "sent":
         contact.date_sent = datetime.utcnow()
+    if status == "accepted":
+        contact.date_connected = datetime.utcnow()
     if message_sent is not None:
         contact.message_sent = message_sent
     if notes is not None:
@@ -195,6 +199,15 @@ def increment_daily_sent_count() -> DailyStat:
     stat.sent_count += 1
     db.session.commit()
     return stat
+
+
+def get_contacts_to_check() -> list:
+    """Return all contacts with status 'sent' — candidates for acceptance check."""
+    return (
+        Contact.query.filter_by(status=ContactStatus.sent)
+        .order_by(Contact.date_sent.asc())
+        .all()
+    )
 
 
 def get_contacts_to_send() -> list:

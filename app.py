@@ -38,6 +38,7 @@ from database import (
     update_contact_status,
     get_today_sent_count,
     get_contacts_to_send,
+    get_contacts_to_check,
     increment_daily_sent_count,
 )
 
@@ -323,6 +324,29 @@ def run_outreach():
     t = threading.Thread(target=_run, daemon=True)
     t.start()
     flash("Outreach run started in the background. Check bot.log for progress.", "info")
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/outreach/check-accepted", methods=["POST"])
+def check_accepted():
+    """Manually trigger an acceptance check in a background thread."""
+    pending_check = get_contacts_to_check()
+    if not pending_check:
+        flash("No sent contacts to check — send some requests first!", "warning")
+        return redirect(url_for("dashboard"))
+
+    def _run():
+        from linkedin_bot import LinkedInBot
+        bot = LinkedInBot()
+        bot.check_accepted_requests(app=app)
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    flash(
+        f"Checking {len(pending_check)} sent contact(s) for acceptance. "
+        "This runs in the background — the dashboard will update automatically.",
+        "info",
+    )
     return redirect(url_for("dashboard"))
 
 
