@@ -53,6 +53,21 @@ logger = logging.getLogger(__name__)
 def create_tables():
     with app.app_context():
         db.create_all()
+        # Apply any schema migrations for columns added after initial creation
+        _run_migrations()
+
+def _run_migrations():
+    """Add new columns to existing tables without dropping data."""
+    migrations = [
+        "ALTER TABLE contacts ADD COLUMN date_connected DATETIME",
+    ]
+    with db.engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(db.text(sql))
+                conn.commit()
+            except Exception:
+                pass  # Column already exists — safe to ignore
 
 create_tables()
 
